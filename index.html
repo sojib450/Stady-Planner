@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSC Study Planner</title>
+    
+    <!-- CSS স্টাইল -->
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            color: #0056b3;
+            margin-bottom: 20px;
+        }
+
+        main {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        section {
+            margin-bottom: 20px;
+        }
+
+        .auth-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+
+        .auth-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+        }
+
+        .auth-tab:first-child {
+            border-radius: 5px 0 0 5px;
+        }
+
+        .auth-tab:last-child {
+            border-radius: 0 5px 5px 0;
+        }
+
+        .auth-tab.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .auth-form {
+            display: none;
+            width: 100%;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .logout-btn {
+            background-color: #dc3545;
+            width: auto;
+            padding: 8px 15px;
+            font-size: 14px;
+            margin-top: 10px;
+            float: right;
+        }
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="email"], input[type="password"], input[type="date"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Important for padding */
+        }
+
+        #chapter-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .chapter-item {
+            display: flex;
+            align-items: center;
+        }
+        .chapter-item input {
+            margin-right: 10px;
+        }
+        .chapter-item label {
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+
+        #plan-result {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e9f5ff;
+            border-left: 5px solid #007bff;
+            border-radius: 5px;
+        }
+
+        #plan-result h3 {
+            margin-top: 0;
+        }
+
+        .plan-day {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+    </style>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>HSC Science Study Planner</h1>
+    </header>
+
+    <main>
+        <!-- Authentication Section -->
+        <section id="auth-section">
+            <div class="auth-container">
+                <div class="auth-tabs">
+                    <div class="auth-tab active" id="signin-tab">লগইন</div>
+                    <div class="auth-tab" id="signup-tab">নিবন্ধন করুন</div>
+                </div>
+                
+                <!-- Sign In Form -->
+                <form id="signin-form" class="auth-form active">
+                    <div class="form-group">
+                        <label for="signin-email">ইমেল:</label>
+                        <input type="email" id="signin-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signin-password">পাসওয়ার্ড:</label>
+                        <input type="password" id="signin-password" required>
+                    </div>
+                    <button type="submit">লগইন করুন</button>
+                </form>
+
+                <!-- Sign Up Form -->
+                <form id="signup-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="signup-email">ইমেল:</label>
+                        <input type="email" id="signup-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-password">পাসওয়ার্ড:</label>
+                        <input type="password" id="signup-password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-confirm-password">পাসওয়ার্ড নিশ্চিত করুন:</label>
+                        <input type="password" id="signup-confirm-password" required>
+                    </div>
+                    <button type="submit">নিবন্ধন করুন</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Planner Section (initially hidden) -->
+        <section id="planner-section" style="display: none;">
+            <h2>আপনার প্ল্যানার তৈরি করুন</h2>
+            <button class="logout-btn" id="logout-btn">লগআউট</button>
+
+            <div class="form-group">
+                <label for="start-date">শুরুর তারিখ:</label>
+                <input type="date" id="start-date" required>
+            </div>
+            <div class="form-group">
+                <label for="end-date">শেষ তারিখ:</label>
+                <input type="date" id="end-date" required>
+            </div>
+            <div class="form-group">
+                <label for="daily-hours">প্রতিদিন কত ঘন্টা পড়তে চান?</label>
+                <input type="number" id="daily-hours" value="4" min="1" max="12">
+            </div>
+
+            <h3>অধ্যায় নির্বাচন করুন</h3>
+            <div id="chapter-selection">
+                <!-- Chapters will be dynamically loaded here by JavaScript -->
+            </div>
+
+            <button id="generate-plan-btn">প্ল্যান তৈরি করুন</button>
+
+            <div id="plan-result">
+                <!-- Generated plan will be displayed here -->
+            </div>
+        </section>
+    </main>
+
+    <!-- JavaScript লজিক -->
+    <script>
+        // --- ধাপ ১: Firebase কনফিগারেশন ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAj3pA0y2yIR5mQS5Mbs3kgJ7gbHWHpWeA",
+            authDomain: "multi-music-a0e8b.firebaseapp.com",
+            databaseURL: "https://multi-music-a0e8b-default-rtdb.firebaseio.com",
+            projectId: "multi-music-a0e8b",
+            storageBucket: "multi-music-a0e8b.firebasestorage.app",
+            messagingSenderId: "74895950053",
+            appId: "1:74895950053:web:48f52eb5dbcc4657f9540c",
+            measurementId: "G-JHDBTXK9P4"
+        };
+
+        // Firebase ইনিশিয়ালাইজ করা
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // --- ধাপ ২: HTML এলিমেন্ট গুলোকে ধরা ---
+        const authSection = document.getElementById('auth-section');
+        const plannerSection = document.getElementById('planner-section');
+        const signinTab = document.getElementById('signin-tab');
+        const signupTab = document.getElementById('signup-tab');
+        const signinForm = document.getElementById('signin-form');
+        const signupForm = document.getElementById('signup-form');
+        const logoutBtn = document.getElementById('logout-btn');
+        const generatePlanBtn = document.getElementById('generate-plan-btn');
+        const chapterSelectionDiv = document.getElementById('chapter-selection');
+        const planResultDiv = document.getElementById('plan-result');
+
+        // --- ধাপ ৩: অধ্যায়ের তথ্য (Chapter Data) ---
+        const chaptersData = [
+            { name: 'ভেক্টর', subject: 'পদার্থবিজ্ঞান', weight: 2 },
+            { name: 'গতিবিদ্যা', subject: 'পদার্থবিজ্ঞান', weight: 3 },
+            { name: 'কাজ, শক্তি ও ক্ষমতা', subject: 'পদার্থবিজ্ঞান', weight: 3 },
+            { name: 'নিউটনের মহাকর্ষ বিধি', subject: 'পদার্থবিজ্ঞান', weight: 2 },
+            { name: 'পদার্থের অবস্থা', subject: 'পদার্থবিজ্ঞান', weight: 2 },
+            { name: 'তরঙ্গ', subject: 'পদার্থবিজ্ঞান', weight: 3 },
+            { name: 'আলোর প্রতিফলন ও প্রতিসরণ', subject: 'পদার্থবিজ্ঞান', weight: 3 },
+            { name: 'পরমাণুর গঠন', subject: 'রসায়ন', weight: 3 },
+            { name: 'পর্যায় সারণি', subject: 'রসায়ন', weight: 2 },
+            { name: 'রাসায়নিক বন্ধন', subject: 'রসায়ন', weight: 3 },
+            { name: 'রাসায়নিক পরিবর্তন', subject: 'রসায়ন', weight: 2 },
+            { name: 'গ্যাসের অবস্থা', subject: 'রসায়ন', weight: 2 },
+            { name: 'জ্যামিতিক অনুপাত ও সাদৃশ্য', subject: 'গণিত', weight: 2 },
+            { name: 'দূরত্ব ও উচ্চতা', subject: 'গণিত', weight: 2 },
+            { name: 'বৃত্ত সম্পর্কিত উপপাদ্য', subject: 'গণিত', weight: 3 },
+            { name: 'লগারিজম ও সূচক', subject: 'গণিত', weight: 3 },
+            { name: 'কোষ ও কোষ বিভাজন', subject: 'জীববিজ্ঞান', weight: 3 },
+            { name: 'কোষের রাসায়নিক উপাদান', subject: 'জীববিজ্ঞান', weight: 2 },
+            { name: 'শ্বসন', subject: 'জীববিজ্ঞান', weight: 2 },
+            { name: 'পরিবহণ', subject: 'জীববিজ্ঞান', weight: 2 },
+            { name: 'পুষ্টি ও খাদ্য', subject: 'জীববিজ্ঞান', weight: 2 },
+        ];
+
+        // --- ধাপ ৪: ফাংশন গুলো ---
+
+        // ট্যাব পরিবর্তনের ফাংশন
+        function switchTab(tab) {
+            if (tab === 'signin') {
+                signinTab.classList.add('active');
+                signupTab.classList.remove('active');
+                signinForm.classList.add('active');
+                signupForm.classList.remove('active');
+            } else {
+                signupTab.classList.add('active');
+                signinTab.classList.remove('active');
+                signupForm.classList.add('active');
+                signinForm.classList.remove('active');
+            }
+        }
+
+        // অধ্যায় লোড করার ফাংশন
+        function loadChapters() {
+            chapterSelectionDiv.innerHTML = '';
+            chaptersData.forEach((chapter, index) => {
+                const chapterItem = document.createElement('div');
+                chapterItem.className = 'chapter-item';
+                chapterItem.innerHTML = `
+                    <input type="checkbox" id="chapter-${index}" value="${index}" checked>
+                    <label for="chapter-${index}">${chapter.subject}: ${chapter.name} (গুরুত্ব: ${chapter.weight})</label>
+                `;
+                chapterSelectionDiv.appendChild(chapterItem);
+            });
+        }
+
+        // প্ল্যান তৈরির ফাংশন (এই ফাংশনটি আগের মতোই আছে)
+        function generatePlan() {
+            const startDate = new Date(document.getElementById('start-date').value);
+            const endDate = new Date(document.getElementById('end-date').value);
+            const dailyHours = parseFloat(document.getElementById('daily-hours').value);
+
+            if (!startDate || !endDate || startDate >= endDate) {
+                alert('দয়া করে সঠিক তারিখ নির্বাচন করুন।');
+                return;
+            }
+
+            const selectedChapters = [];
+            const checkboxes = document.querySelectorAll('#chapter-selection input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('অনুগ্রহ করে কমপক্ষে একটি অধ্যায় নির্বাচন করুন।');
+                return;
+            }
+
+            checkboxes.forEach(checkbox => {
+                selectedChapters.push(chaptersData[checkbox.value]);
+            });
+
+            let totalStudyDays = 0;
+            let currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                if (currentDate.getDay() !== 5) {
+                    totalStudyDays++;
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            const totalAvailableHours = totalStudyDays * dailyHours;
+
+            const totalWeight = selectedChapters.reduce((sum, chapter) => sum + chapter.weight, 0);
+            const plan = selectedChapters.map(chapter => ({
+                ...chapter,
+                allocatedHours: Math.round((chapter.weight / totalWeight) * totalAvailableHours * 10) / 10
+            }));
+            
+            const tasks = [];
+            plan.forEach(p => {
+                let hoursRemaining = p.allocatedHours;
+                while(hoursRemaining > 0) {
+                    const taskHours = Math.min(hoursRemaining, dailyHours);
+                    tasks.push({ name: `${p.subject}: ${p.name}`, hours: taskHours });
+                    hoursRemaining -= taskHours;
+                }
+            });
+
+            let scheduleHTML = '<h3>আপনার স্টাডি প্ল্যান</h3>';
+            currentDate = new Date(startDate);
+            let taskIndex = 0;
+
+            while (currentDate <= endDate && taskIndex < tasks.length) {
+                if (currentDate.getDay() !== 5) {
+                    const task = tasks[taskIndex];
+                    const dayString = currentDate.toLocaleDateString('bn-BD', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                    scheduleHTML += `
+                        <div class="plan-day">
+                            <strong>${dayString}</strong>
+                            <p>বিষয়: ${task.name} (${task.hours} ঘণ্টা)</p>
+                        </div>
+                    `;
+                    taskIndex++;
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            planResultDiv.innerHTML = scheduleHTML;
+
+            const user = auth.currentUser;
+            if (user) {
+                db.collection('users').doc(user.uid).collection('plans').add({
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString(),
+                    plan: plan,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).then(() => {
+                    console.log('Plan saved successfully!');
+                }).catch(error => {
+                    console.error('Error saving plan:', error);
+                });
+            }
+        }
+
+        // --- ধাপ ৫: ইভেন্ট লিসেনার ---
+
+        // ট্যাব সুইচ ইভেন্ট
+        signinTab.addEventListener('click', () => switchTab('signin'));
+        signupTab.addEventListener('click', () => switchTab('signup'));
+
+        // নিবন্ধন ফর্ম সাবমিট ইভেন্ট
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('signup-confirm-password').value;
+
+            if (password !== confirmPassword) {
+                alert('পাসওয়ার্ড মেলেনি। আবার চেষ্টা করুন।');
+                return;
+            }
+
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    console.log('User signed up:', userCredential.user);
+                })
+                .catch((error) => {
+                    console.error('Sign up failed:', error);
+                    alert(error.message);
+                });
+        });
+
+        // লগইন ফর্ম সাবমিট ইভেন্ট
+        signinForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signin-email').value;
+            const password = document.getElementById('signin-password').value;
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    console.log('User signed in:', userCredential.user);
+                })
+                .catch((error) => {
+                    console.error('Sign in failed:', error);
+                    alert(error.message);
+                });
+        });
+        
+        // লগআউট বাটন ইভেন্ট
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                console.log('User signed out.');
+            }).catch((error) => {
+                console.error('Sign out failed:', error);
+            });
+        });
+
+        // প্ল্যান তৈরি বাটন ইভেন্ট
+        generatePlanBtn.addEventListener('click', generatePlan);
+
+
+        // --- ধাপ ৬: অথেনটিকেশন স্টেট ম্যানেজার ---
+        // এটি সবচেয়ে গুরুত্বপূর্ণ অংশ। এটি দেখবে ইউজার লগইন আছে কিনা।
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // ইউজার লগইন আছে
+                console.log('User is logged in:', user.email);
+                authSection.style.display = 'none';
+                plannerSection.style.display = 'block';
+                loadChapters();
+            } else {
+                // ইউজার লগআউট
+                console.log('User is logged out.');
+                authSection.style.display = 'block';
+                plannerSection.style.display = 'none';
+            }
+        });
+
+    </script>
+</body>
+</html>
