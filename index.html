@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSC Study Planner</title>
+    
+    <!-- CSS স্টাইল -->
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            color: #0056b3;
+            margin-bottom: 20px;
+        }
+
+        main {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        section {
+            margin-bottom: 20px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="date"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Important for padding */
+        }
+
+        #chapter-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .chapter-item {
+            display: flex;
+            align-items: center;
+        }
+        .chapter-item input {
+            margin-right: 10px;
+        }
+        .chapter-item label {
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+
+        #plan-result {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e9f5ff;
+            border-left: 5px solid #007bff;
+            border-radius: 5px;
+        }
+
+        #plan-result h3 {
+            margin-top: 0;
+        }
+
+        .plan-day {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+    </style>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>HSC Science Study Planner</h1>
+    </header>
+
+    <main>
+        <!-- Login Section -->
+        <section id="login-section">
+            <p>অনুগ্রহ করে আপনার Gmail দিয়ে লগইন করুন</p>
+            <button id="login-btn">Login with Google</button>
+        </section>
+
+        <!-- Planner Section (initially hidden) -->
+        <section id="planner-section" style="display: none;">
+            <h2>আপনার প্ল্যানার তৈরি করুন</h2>
+
+            <div class="form-group">
+                <label for="start-date">শুরুর তারিখ:</label>
+                <input type="date" id="start-date" required>
+            </div>
+            <div class="form-group">
+                <label for="end-date">শেষ তারিখ:</label>
+                <input type="date" id="end-date" required>
+            </div>
+            <div class="form-group">
+                <label for="daily-hours">প্রতিদিন কত ঘন্টা পড়তে চান?</label>
+                <input type="number" id="daily-hours" value="4" min="1" max="12">
+            </div>
+
+            <h3>অধ্যায় নির্বাচন করুন</h3>
+            <div id="chapter-selection">
+                <!-- Chapters will be dynamically loaded here by JavaScript -->
+            </div>
+
+            <button id="generate-plan-btn">প্ল্যান তৈরি করুন</button>
+
+            <div id="plan-result">
+                <!-- Generated plan will be displayed here -->
+            </div>
+        </section>
+    </main>
+
+    <!-- JavaScript লজিক -->
+    <script>
+        // --- ধাপ ১: Firebase কনফিগারেশন ---
+        // তোমার দেওয়া Firebase Config কোড এখানে বসানো হয়েছে
+        const firebaseConfig = {
+            apiKey: "AIzaSyAj3pA0y2yIR5mQS5Mbs3kgJ7gbHWHpWeA",
+            authDomain: "multi-music-a0e8b.firebaseapp.com",
+            databaseURL: "https://multi-music-a0e8b-default-rtdb.firebaseio.com",
+            projectId: "multi-music-a0e8b",
+            storageBucket: "multi-music-a0e8b.firebasestorage.app",
+            messagingSenderId: "74895950053",
+            appId: "1:74895950053:web:48f52eb5dbcc4657f9540c",
+            measurementId: "G-JHDBTXK9P4"
+        };
+
+        // Firebase ইনিশিয়ালাইজ করা
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // --- ধাপ ২: HTML এলিমেন্ট গুলোকে ধরা ---
+        const loginSection = document.getElementById('login-section');
+        const plannerSection = document.getElementById('planner-section');
+        const loginBtn = document.getElementById('login-btn');
+        const generatePlanBtn = document.getElementById('generate-plan-btn');
+        const chapterSelectionDiv = document.getElementById('chapter-selection');
+        const planResultDiv = document.getElementById('plan-result');
+
+        // --- ধাপ ৩: অধ্যায়ের তথ্য (Chapter Data) ---
+        // এখানে HSC Science এর অধ্যায় এবং তাদের গুরুত্ব ডিফাইন করা হয়েছে
+        // 'weight' যত বেশি, তত বেশি সময় পাবে
+        const chaptersData = [
+            // পদার্থবিজ্ঞান (১ম পত্র)
+            { name: 'ভেক্টর', subject: 'পদার্থবিজ্ঞান', weight: 2 },
+            { name: 'গতিবিদ্যা', subject: 'পদার্থবিজ্ঞান', weight: 3 },
+            { name: 'কাজ, শক্তি ও ক্ষমতা', subject: 'পদার্থবিজ্ঞান', weight: 3 },
+            { name: 'নিউটনের মহাকর্ষ বিধি', subject: 'পদার্থবিজ্ঞান', weight: 2 },
+            { name: 'পদার্থের অবস্থা', subject: 'পদার্থবিজ্ঞান', weight: 2 },
+            { name: 'তরঙ্গ', subject: 'পদার্থবিজ্ঞান', weight: 3 },
+            { name: 'আলোর প্রতিফলন ও প্রতিসরণ', subject: 'পদার্থবিজ্ঞান', weight: 3 },
+            // রসায়ন (১ম পত্র)
+            { name: 'পরমাণুর গঠন', subject: 'রসায়ন', weight: 3 },
+            { name: 'পর্যায় সারণি', subject: 'রসায়ন', weight: 2 },
+            { name: 'রাসায়নিক বন্ধন', subject: 'রসায়ন', weight: 3 },
+            { name: 'রাসায়নিক পরিবর্তন', subject: 'রসায়ন', weight: 2 },
+            { name: 'গ্যাসের অবস্থা', subject: 'রসায়ন', weight: 2 },
+            // উচ্চতর গণিত (১ম পত্র)
+            { name: 'জ্যামিতিক অনুপাত ও সাদৃশ্য', subject: 'গণিত', weight: 2 },
+            { name: 'দূরত্ব ও উচ্চতা', subject: 'গণিত', weight: 2 },
+            { name: 'বৃত্ত সম্পর্কিত উপপাদ্য', subject: 'গণিত', weight: 3 },
+            { name: 'লগারিজম ও সূচক', subject: 'গণিত', weight: 3 },
+            // জীববিজ্ঞান (১ম পত্র)
+            { name: 'কোষ ও কোষ বিভাজন', subject: 'জীববিজ্ঞান', weight: 3 },
+            { name: 'কোষের রাসায়নিক উপাদান', subject: 'জীববিজ্ঞান', weight: 2 },
+            { name: 'শ্বসন', subject: 'জীববিজ্ঞান', weight: 2 },
+            { name: 'পরিবহণ', subject: 'জীববিজ্ঞান', weight: 2 },
+            { name: 'পুষ্টি ও খাদ্য', subject: 'জীববিজ্ঞান', weight: 2 },
+        ];
+
+        // --- ধাপ ৪: ফাংশন গুলো ---
+
+        // লগইন ফাংশন
+        loginBtn.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    console.log('Login successful:', result.user);
+                    loginSection.style.display = 'none';
+                    plannerSection.style.display = 'block';
+                    loadChapters(); // লগইন হয়ে গেলে অধ্যায় লোড করো
+                })
+                .catch((error) => {
+                    console.error('Login failed:', error);
+                    alert('লগইন ব্যর্থ হয়েছে। কনসোল চেক করুন।');
+                });
+        });
+
+        // অধ্যায় লোড করার ফাংশন
+        function loadChapters() {
+            chapterSelectionDiv.innerHTML = ''; // আগের কিছু থাকলে মুছে ফেলো
+            chaptersData.forEach((chapter, index) => {
+                const chapterItem = document.createElement('div');
+                chapterItem.className = 'chapter-item';
+                chapterItem.innerHTML = `
+                    <input type="checkbox" id="chapter-${index}" value="${index}" checked>
+                    <label for="chapter-${index}">${chapter.subject}: ${chapter.name} (গুরুত্ব: ${chapter.weight})</label>
+                `;
+                chapterSelectionDiv.appendChild(chapterItem);
+            });
+        }
+
+        // প্ল্যান তৈরির ফাংশন
+        generatePlanBtn.addEventListener('click', () => {
+            const startDate = new Date(document.getElementById('start-date').value);
+            const endDate = new Date(document.getElementById('end-date').value);
+            const dailyHours = parseFloat(document.getElementById('daily-hours').value);
+
+            if (!startDate || !endDate || startDate >= endDate) {
+                alert('দয়া করে সঠিক তারিখ নির্বাচন করুন।');
+                return;
+            }
+
+            // নির্বাচিত অধ্যায়গুলো বের করো
+            const selectedChapters = [];
+            const checkboxes = document.querySelectorAll('#chapter-selection input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('অনুগ্রহ করে কমপক্ষে একটি অধ্যায় নির্বাচন করুন।');
+                return;
+            }
+
+            checkboxes.forEach(checkbox => {
+                const chapterIndex = checkbox.value;
+                selectedChapters.push(chaptersData[chapterIndex]);
+            });
+
+            // মোট পড়ার দিন ও ঘণ্টা হিসাব করো (শুক্রবার বাদ)
+            let totalStudyDays = 0;
+            let currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                if (currentDate.getDay() !== 5) { // 5 = Friday
+                    totalStudyDays++;
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            const totalAvailableHours = totalStudyDays * dailyHours;
+
+            // অধ্যায়গুলোর মোট weight হিসাব করো
+            const totalWeight = selectedChapters.reduce((sum, chapter) => sum + chapter.weight, 0);
+
+            // প্রতিটি অধ্যায়ের জন্য ঘণ্টা বণ্টন করো
+            const plan = selectedChapters.map(chapter => {
+                const allocatedHours = (chapter.weight / totalWeight) * totalAvailableHours;
+                return {
+                    ...chapter,
+                    allocatedHours: Math.round(allocatedHours * 10) / 10 // দশমিকের পর এক ডিজিট রাখা
+                };
+            });
+            
+            // প্ল্যানটিকে ক্যালেন্ডারে সাজানোর জন্য একটি টাস্ক লিস্ট তৈরি করা
+            const tasks = [];
+            plan.forEach(p => {
+                let hoursRemaining = p.allocatedHours;
+                while(hoursRemaining > 0) {
+                    const taskHours = Math.min(hoursRemaining, dailyHours);
+                    tasks.push({ name: `${p.subject}: ${p.name}`, hours: taskHours });
+                    hoursRemaining -= taskHours;
+                }
+            });
+
+            // ক্যালেন্ডারে টাস্ক বসানো
+            let scheduleHTML = '<h3>আপনার স্টাডি প্ল্যান</h3>';
+            currentDate = new Date(startDate);
+            let taskIndex = 0;
+
+            while (currentDate <= endDate && taskIndex < tasks.length) {
+                if (currentDate.getDay() !== 5) { // শুক্রবার নয়
+                    const task = tasks[taskIndex];
+                    const dayString = currentDate.toLocaleDateString('bn-BD', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                    scheduleHTML += `
+                        <div class="plan-day">
+                            <strong>${dayString}</strong>
+                            <p>বিষয়: ${task.name} (${task.hours} ঘণ্টা)</p>
+                        </div>
+                    `;
+                    taskIndex++;
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            planResultDiv.innerHTML = scheduleHTML;
+
+            // ঐচ্ছিক: প্ল্যানটি Firestore এ সেভ করো
+            const user = auth.currentUser;
+            if (user) {
+                db.collection('users').doc(user.uid).collection('plans').add({
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString(),
+                    plan: plan,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).then(() => {
+                    console.log('Plan saved successfully!');
+                }).catch(error => {
+                    console.error('Error saving plan:', error);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
